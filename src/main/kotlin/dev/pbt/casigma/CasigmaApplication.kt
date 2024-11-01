@@ -1,6 +1,7 @@
 package dev.pbt.casigma
 
 import dev.pbt.casigma.controllers.LoginController
+import dev.pbt.casigma.controllers.WaitersController
 import dev.pbt.casigma.modules.AlertProvider
 import dev.pbt.casigma.modules.Argon2
 import dev.pbt.casigma.modules.NavigationProvider
@@ -26,6 +27,7 @@ class CasigmaApplication : Application() {
             single { Argon2() }
             single { NavigationProvider(this@CasigmaApplication) }
             factory { LoginController(get(), get(), get(), get()) }
+            factory { WaitersController(get()) }
         }
 
         koin = startKoin { modules(appModules) }.koin
@@ -37,7 +39,7 @@ class CasigmaApplication : Application() {
 
         // Navigate to the first view
         val navigationProvider: NavigationProvider = koin.get()
-        navigationProvider.navigate("login.fxml", LoginController::class.java)
+        navigationProvider.navigate("waiters.fxml", WaitersController::class.java)
     }
 
 

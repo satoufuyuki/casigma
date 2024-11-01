@@ -26,7 +26,6 @@ fun main() {
             it[User.email] = "admin@pbt.com"
             it[User.password] = Argon2().hash("password")
             it[User.createdAt] = java.time.LocalDateTime.now()
-            it[User.updatedAt] = java.time.LocalDateTime.now()
         }
         generateMigrationScript()
     }

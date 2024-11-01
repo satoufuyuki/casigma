@@ -35,7 +35,7 @@ class LoginController(
                 return@transaction alertProvider.error("E-mail atau password salah!")
             }
 
-            navigationProvider.navigate("cashier.fxml", CashierController::class.java)
+            navigationProvider.navigate("waiters.fxml", WaitersController::class.java)
         }
     }
 }
