@@ -2,9 +2,11 @@ package dev.pbt.casigma
 
 import dev.pbt.casigma.controllers.LoginController
 import dev.pbt.casigma.controllers.WaitersController
+import dev.pbt.casigma.controllers.WaitersListOrderController
 import dev.pbt.casigma.modules.AlertProvider
 import dev.pbt.casigma.modules.Argon2
 import dev.pbt.casigma.modules.NavigationProvider
+import dev.pbt.casigma.modules.UserProvider
 import javafx.application.Application
 import javafx.stage.Stage
 import org.koin.core.context.startKoin
@@ -14,6 +16,7 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardOpenOption
 import dev.pbt.casigma.modules.database.DB
+import dev.pbt.casigma.utils.OrderUtils
 import org.koin.core.Koin
 
 class CasigmaApplication : Application() {
@@ -24,10 +27,13 @@ class CasigmaApplication : Application() {
         val appModules = module {
             singleOf(::DB)
             singleOf(::AlertProvider)
+            single { OrderUtils(get(), get()) }
+            single { UserProvider(get(), get()) }
             single { Argon2() }
-            single { NavigationProvider(this@CasigmaApplication) }
-            factory { LoginController(get(), get(), get(), get()) }
-            factory { WaitersController(get()) }
+            single { NavigationProvider(this@CasigmaApplication, get(), get()) }
+            factory { LoginController(get(), get(), get(), get(), get()) }
+            factory { WaitersController(get(), get()) }
+            factory { WaitersListOrderController(get(), get()) }
         }
 
         koin = startKoin { modules(appModules) }.koin
@@ -39,7 +45,8 @@ class CasigmaApplication : Application() {
 
         // Navigate to the first view
         val navigationProvider: NavigationProvider = koin.get()
-        navigationProvider.navigate("waiters.fxml", WaitersController::class.java)
+//        navigationProvider.navigate("waiters-all-order.fxml", WaitersListOrderController::class.java)
+        navigationProvider.navigate("login.fxml", LoginController::class.java)
     }
 
 

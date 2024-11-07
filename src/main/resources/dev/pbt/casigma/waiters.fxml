@@ -6,7 +6,7 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.*?>
 
-<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="1080.0" prefWidth="1920.0" style="-fx-background-color: #DBDEEC;" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="dev.pbt.casigma.controllers.WaitersController">
+<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="768.0" prefWidth="1280.0" style="-fx-background-color: #DBDEEC;" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="dev.pbt.casigma.controllers.WaitersController">
     <HBox alignment="CENTER" maxWidth="1.7976931348623157E308" prefHeight="100.0" style="-fx-background-color: #464DF9;">
         <ImageView fitHeight="150.0" fitWidth="200.0" pickOnBounds="true" preserveRatio="true">
             <Image url="@assets/images/casigma-icon-white.png" />
@@ -35,7 +35,7 @@
                                 <Font name="Poppins Medium" size="25.0" />
                             </font>
                             <padding>
-                                <Insets left="-0.0" top="5.0" />
+                                <Insets bottom="5.0" left="-0.0" top="5.0" />
                             </padding>
                         </Button>
                         <Button layoutX="10.0" layoutY="10.0" mnemonicParsing="false" style="-fx-background-color: none;;" text="Drinks" textFill="#00000099">
@@ -48,6 +48,9 @@
                                 <Font name="Poppins Medium" size="25.0" />
                             </font>
                         </Button>
+                        <HBox alignment="CENTER_RIGHT" prefHeight="100.0" prefWidth="200.0" HBox.hgrow="ALWAYS">
+                            <ComboBox fx:id="orderComboBox" prefWidth="150.0" />
+                        </HBox>
                     </children>
                     <padding>
                         <Insets top="15.0" />
@@ -98,17 +101,17 @@
                             <Font name="Poppins Medium" size="20.0" />
                         </font>
                     </Label>
-                    <Label layoutX="10.0" layoutY="112.0" text="11/11/2024" GridPane.columnIndex="1">
+                    <Label fx:id="currentOrderDate" layoutX="10.0" layoutY="112.0" text="-" GridPane.columnIndex="1">
                         <font>
                             <Font name="Poppins Medium" size="20.0" />
                         </font>
                     </Label>
-                    <Label layoutX="10.0" layoutY="24.0" text="13:00" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                    <Label fx:id="currentOrderTime" layoutX="10.0" layoutY="24.0" text="-" GridPane.columnIndex="1" GridPane.rowIndex="1">
                         <font>
                             <Font name="Poppins Medium" size="20.0" />
                         </font>
                     </Label>
-                    <Label layoutX="10.0" layoutY="24.0" text="Muhammad Raymond" GridPane.columnIndex="1" GridPane.rowIndex="2">
+                    <Label fx:id="currentOrderCustomerName" layoutX="10.0" layoutY="24.0" text="-" GridPane.columnIndex="1" GridPane.rowIndex="2">
                         <font>
                             <Font name="Poppins Medium" size="20.0" />
                         </font>
@@ -120,7 +123,23 @@
                     <Insets top="15.0" />
                 </VBox.margin>
             </ScrollPane>
-            <Region prefHeight="170.0" prefWidth="480.0" VBox.vgrow="ALWAYS" />
+         <VBox prefHeight="200.0" prefWidth="100.0" spacing="8.0" VBox.vgrow="ALWAYS">
+            <children>
+               <Label text="Notes:">
+                  <font>
+                     <Font name="Poppins Medium" size="20.0" />
+                  </font>
+               </Label>
+                <Label fx:id="additionalNotes" opacity="0.6" text="-">
+                    <font>
+                        <Font name="Poppins Medium" size="20.0" />
+                    </font>
+                </Label>
+            </children>
+            <VBox.margin>
+               <Insets top="12.0" />
+            </VBox.margin>
+         </VBox>
             <VBox alignment="BOTTOM_CENTER" maxWidth="1.7976931348623157E308" style="-fx-background-image: none; -fx-border-color: #464DF9; -fx-border-width: 3; -fx-border-radius: 30 30 0 0; -fx-border-style: solid solid none solid;">
                 <HBox alignment="CENTER" maxWidth="1.7976931348623157E308" prefHeight="100.0">
                     <Label maxWidth="1.7976931348623157E308" text="Total" textFill="#000000">

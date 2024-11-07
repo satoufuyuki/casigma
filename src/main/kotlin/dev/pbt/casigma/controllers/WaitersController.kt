@@ -4,9 +4,12 @@ import dev.pbt.casigma.modules.database.DB
 import dev.pbt.casigma.modules.database.models.Menu
 import dev.pbt.casigma.modules.database.models.MenuCategory
 import dev.pbt.casigma.modules.database.models.MenuItem
+import dev.pbt.casigma.modules.database.models.Order
+import dev.pbt.casigma.modules.database.models.OrderStatus
+import dev.pbt.casigma.utils.OrderUtils
 import javafx.fxml.FXML
 import javafx.fxml.Initializable
-import javafx.geometry.Pos
+import javafx.scene.control.ComboBox
 import javafx.scene.control.Label
 import javafx.scene.control.ScrollPane
 import javafx.scene.image.Image
@@ -20,28 +23,36 @@ import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.net.URL
 import java.text.NumberFormat
+import java.time.format.DateTimeFormatter
 import java.util.ResourceBundle
 
-class WaitersController(db: DB): Initializable {
+class WaitersController(private val db: DB, private val orderUtils: OrderUtils): Initializable {
     @FXML
     lateinit var scrollPane: ScrollPane
-
     @FXML
     lateinit var orderListScrollPane: ScrollPane
-
     @FXML
     lateinit var totalLabel: Label
-
+    @FXML
+    lateinit var orderComboBox: ComboBox<String>
+    @FXML
+    lateinit var currentOrderDate: Label
+    @FXML
+    lateinit var currentOrderTime: Label
+    @FXML
+    lateinit var currentOrderCustomerName: Label
+    @FXML
+    lateinit var additionalNotes: Label
     lateinit var gridPane: GridPane
 
     var orderListGridPane: GridPane = GridPane()
-    var orderList: List<MenuItem> = ArrayList()
     var menu: ArrayList<MenuItem> = ArrayList()
-    var conn = db.conn
     var currentTab = MenuCategory.Food
+    var currentOrderId: Int? = null
+    var currentOrderData: OrderWithItems? = null
 
     override fun initialize(p0: URL?, p1: ResourceBundle?) {
-        transaction(conn) {
+        transaction(db.conn) {
             Menu.selectAll().where {
                 Menu.category eq currentTab
             }.orderBy(Menu.name, SortOrder.ASC).forEach {
@@ -61,42 +72,17 @@ class WaitersController(db: DB): Initializable {
             colConstraint.hgrow = javafx.scene.layout.Priority.ALWAYS
             orderListGridPane.columnConstraints.addAll(colConstraint, colConstraint)
 
+            // fetch all tables with pending orders
+            Order.select(Order.tableNo).where { Order.status eq OrderStatus.Pending }.distinct().forEach {
+                orderComboBox.items.add("Table ${it[Order.tableNo]}")
+            }
+
+            orderComboBox.setOnAction {
+                handleOrderComboBox()
+            }
+
             renderMenu()
         }
-    }
-
-    fun formatItemList(): List<Map<String, Any>> {
-        val itemCountMap = orderList.groupingBy { it.id }.eachCount()
-        val itemMap = orderList.associateBy { it.id }
-
-        return itemCountMap.entries.map { (id, count) ->
-            val itemName = itemMap[id]?.name ?: "Unknown Item"
-            return@map mapOf(
-                "title" to "${count}x $itemName",
-                "price" to "Rp${NumberFormat.getNumberInstance(java.util.Locale.GERMANY).format(itemMap[id]?.price?.toInt())}"
-            )
-        }
-    }
-
-    fun renderOrderList() {
-        orderListGridPane.children.clear()
-        val formattedOrderList = formatItemList()
-        formattedOrderList.forEachIndexed { index, item ->
-            val itemLabel = Label(item["title"].toString())
-            itemLabel.font = javafx.scene.text.Font("Poppins Medium", 20.0)
-            itemLabel.prefWidth = 240.0
-            orderListGridPane.add(itemLabel, 0, index)
-
-            val priceLabel = Label(item["price"].toString())
-            priceLabel.font = javafx.scene.text.Font("Poppins Medium", 20.0)
-            priceLabel.prefWidth = 220.0
-            priceLabel.opacity = 0.6
-            priceLabel.alignment = Pos.CENTER_RIGHT
-            orderListGridPane.add(priceLabel, 1, index)
-        }
-
-        orderListScrollPane.content = orderListGridPane
-        totalLabel.text = "Rp${NumberFormat.getNumberInstance(java.util.Locale.GERMANY).format(orderList.sumOf { it.price.toInt() })}"
     }
 
     fun renderMenu() {
@@ -168,7 +154,8 @@ class WaitersController(db: DB): Initializable {
         var minusButton = javafx.scene.control.Button("-")
         minusButton.style = "-fx-background-color: none; -fx-border-color: #000000; -fx-border-width: 1px; -fx-border-radius: 5px;"
         minusButton.font = javafx.scene.text.Font("Poppins Regular", 20.0)
-        var quantityLabel = javafx.scene.control.Label("0")
+        var existingQuantity = currentOrderData?.orders?.count { it.id == item.id } ?: 0
+        var quantityLabel = Label(existingQuantity.toString())
         quantityLabel.font = javafx.scene.text.Font("Poppins Regular", 20.0)
         var plusButton = javafx.scene.control.Button("+")
         plusButton.style = "-fx-background-color: none; -fx-border-color: #000000; -fx-border-width: 1px; -fx-border-radius: 5px;"
@@ -190,6 +177,10 @@ class WaitersController(db: DB): Initializable {
     }
 
     fun handleQuantityButton(mode: String, col: Int, row: Int, item: MenuItem) {
+        if (currentOrderId == null) {
+            return
+        }
+
         val itemVBox = gridPane.children[(row * 4) + col] as VBox
         val textHBox = itemVBox.children[2] as HBox
         val quantityLabel = textHBox.children[1] as Label
@@ -197,16 +188,42 @@ class WaitersController(db: DB): Initializable {
         when (mode) {
             "increment" -> {
                 quantityLabel.text = (currentCount + 1).toString()
-                orderList = orderList.plus(item)
+                currentOrderData?.orders = currentOrderData!!.orders.plus(item) as ArrayList<MenuItem>
             }
             "decrement" -> {
                 if (currentCount > 0) {
-                    orderList = orderList.minus(item)
+                    currentOrderData?.orders = currentOrderData!!.orders.minus(item) as ArrayList<MenuItem>
                     quantityLabel.text = (currentCount - 1).toString()
                 }
             }
         }
 
-        renderOrderList()
+        orderUtils.renderOrderList(currentOrderData!!.orders, orderListGridPane, orderListScrollPane, totalLabel)
+    }
+
+    fun handleOrderComboBox() {
+        val selectedTable = orderComboBox.selectionModel.selectedItem
+        if (selectedTable != null) {
+            currentOrderId = selectedTable.split(" ")[1].toInt()
+        }
+
+        if (currentOrderId === null) return
+
+        val orderData = orderUtils.fetchOrderData(currentOrderId!!)
+        if (orderData !== null) {
+            currentOrderData = orderData
+            orderUtils.renderOrderList(orderData.orders, orderListGridPane, orderListScrollPane, totalLabel)
+
+            val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+            val timeFormatter = DateTimeFormatter.ofPattern("HH:mm 'WIB'")
+
+            currentOrderDate.text = orderData.createdAt.format(dateFormatter)
+            currentOrderTime.text = orderData.createdAt.format(timeFormatter)
+
+            currentOrderCustomerName.text = orderData.name
+            additionalNotes.text = orderData.additionalNotes ?: "No additional notes"
+
+            renderMenu()
+        }
     }
 }

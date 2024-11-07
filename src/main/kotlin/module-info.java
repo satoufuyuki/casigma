@@ -2,6 +2,7 @@ module dev.pbt.casigma {
     requires javafx.controls;
     requires javafx.fxml;
     requires kotlin.stdlib;
+    requires kotlin.reflect;
 
     requires org.controlsfx.controls;
     requires net.synedra.validatorfx;

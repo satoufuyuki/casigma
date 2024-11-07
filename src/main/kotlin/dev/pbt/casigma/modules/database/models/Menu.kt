@@ -1,9 +1,18 @@
 package dev.pbt.casigma.modules.database.models
 
+import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.javatime.CurrentDateTime
 import org.jetbrains.exposed.sql.javatime.datetime
 import java.time.LocalDateTime
+
+object Menus : IntIdTable() {
+    val name = varchar("name", 50)
+    val price = float("price")
+    val category = enumeration("category", MenuCategory::class)
+    val image = varchar("image", 50)
+    val createdAt = datetime("created_at").defaultExpression(CurrentDateTime)
+}
 
 data class MenuItem(
     val id: Int,
