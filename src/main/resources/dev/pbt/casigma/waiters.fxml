@@ -153,7 +153,7 @@
                         </font>
                     </Label>
                 </HBox>
-                <Button maxWidth="1.7976931348623157E308" minWidth="-Infinity" mnemonicParsing="false" style="-fx-background-color: #464DF9; -fx-background-radius: 10;" text="Add Order" textFill="WHITE">
+                <Button maxWidth="1.7976931348623157E308" minWidth="-Infinity" mnemonicParsing="false" style="-fx-background-color: #464DF9; -fx-background-radius: 10;" text="Add Order" textFill="WHITE" fx:id="addOrder">
                     <font>
                         <Font name="Poppins Regular" size="24.0" />
                     </font>

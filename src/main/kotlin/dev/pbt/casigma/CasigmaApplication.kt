@@ -32,7 +32,7 @@ class CasigmaApplication : Application() {
             single { Argon2() }
             single { NavigationProvider(this@CasigmaApplication, get(), get()) }
             factory { LoginController(get(), get(), get(), get(), get()) }
-            factory { WaitersController(get(), get()) }
+            factory { WaitersController(get(), get(), get()) }
             factory { WaitersListOrderController(get(), get()) }
         }
 

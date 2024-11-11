@@ -1,14 +1,13 @@
 package dev.pbt.casigma.controllers
 
+import dev.pbt.casigma.modules.AlertProvider
 import dev.pbt.casigma.modules.database.DB
-import dev.pbt.casigma.modules.database.models.Menu
-import dev.pbt.casigma.modules.database.models.MenuCategory
-import dev.pbt.casigma.modules.database.models.MenuItem
-import dev.pbt.casigma.modules.database.models.Order
-import dev.pbt.casigma.modules.database.models.OrderStatus
+import dev.pbt.casigma.modules.database.models.*
 import dev.pbt.casigma.utils.OrderUtils
+import javafx.event.EventHandler
 import javafx.fxml.FXML
 import javafx.fxml.Initializable
+import javafx.scene.control.Button
 import javafx.scene.control.ComboBox
 import javafx.scene.control.Label
 import javafx.scene.control.ScrollPane
@@ -18,15 +17,16 @@ import javafx.scene.layout.GridPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.RowConstraints
 import javafx.scene.layout.VBox
-import org.jetbrains.exposed.sql.SortOrder
-import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.net.URL
 import java.text.NumberFormat
 import java.time.format.DateTimeFormatter
 import java.util.ResourceBundle
+import kotlin.text.insert
 
-class WaitersController(private val db: DB, private val orderUtils: OrderUtils): Initializable {
+class WaitersController(private val db: DB, private val orderUtils: OrderUtils, private val alertProvider: AlertProvider): Initializable {
     @FXML
     lateinit var scrollPane: ScrollPane
     @FXML
@@ -43,6 +43,9 @@ class WaitersController(private val db: DB, private val orderUtils: OrderUtils):
     lateinit var currentOrderCustomerName: Label
     @FXML
     lateinit var additionalNotes: Label
+    @FXML
+    lateinit var addOrder: Button
+
     lateinit var gridPane: GridPane
 
     var orderListGridPane: GridPane = GridPane()
@@ -60,6 +63,7 @@ class WaitersController(private val db: DB, private val orderUtils: OrderUtils):
                     it[Menu.id],
                     it[Menu.name],
                     it[Menu.price],
+                    0,
                     it[Menu.category],
                     it[Menu.image],
                     it[Menu.createdAt]
@@ -82,6 +86,10 @@ class WaitersController(private val db: DB, private val orderUtils: OrderUtils):
             }
 
             renderMenu()
+        }
+
+        addOrder.onAction = EventHandler {
+            handleAddOrderButton()
         }
     }
 
@@ -138,12 +146,15 @@ class WaitersController(private val db: DB, private val orderUtils: OrderUtils):
             println("Image not found: /dev/pbt/casigma/assets/images/foods/${item.image}")
         }
 
+        var currentQuantity = currentOrderData?.orders?.find { it.id == item.id }?.quantity ?: 0
         // construct vbox for text
         var textVBox = VBox()
         textVBox.alignment = javafx.geometry.Pos.CENTER
         var nameLabel = javafx.scene.control.Label(item.name)
         nameLabel.font = javafx.scene.text.Font("Poppins Medium", 25.0)
-        var priceLabel = javafx.scene.control.Label("Rp${NumberFormat.getNumberInstance(java.util.Locale.GERMANY).format(item.price.toInt())}")
+        var priceLabel = javafx.scene.control.Label(orderUtils.formatRupiah(
+            item.price.toInt()
+        ))
         priceLabel.font = javafx.scene.text.Font("Poppins Medium", 20.0)
         textVBox.children.addAll(nameLabel, priceLabel)
 
@@ -154,8 +165,7 @@ class WaitersController(private val db: DB, private val orderUtils: OrderUtils):
         var minusButton = javafx.scene.control.Button("-")
         minusButton.style = "-fx-background-color: none; -fx-border-color: #000000; -fx-border-width: 1px; -fx-border-radius: 5px;"
         minusButton.font = javafx.scene.text.Font("Poppins Regular", 20.0)
-        var existingQuantity = currentOrderData?.orders?.count { it.id == item.id } ?: 0
-        var quantityLabel = Label(existingQuantity.toString())
+        var quantityLabel = Label(currentQuantity.toString())
         quantityLabel.font = javafx.scene.text.Font("Poppins Regular", 20.0)
         var plusButton = javafx.scene.control.Button("+")
         plusButton.style = "-fx-background-color: none; -fx-border-color: #000000; -fx-border-width: 1px; -fx-border-radius: 5px;"
@@ -176,9 +186,14 @@ class WaitersController(private val db: DB, private val orderUtils: OrderUtils):
         return itemVBox
     }
 
-    fun handleQuantityButton(mode: String, col: Int, row: Int, item: MenuItem) {
+    private fun handleQuantityButton(mode: String, col: Int, row: Int, item: MenuItem) {
         if (currentOrderId == null) {
             return
+        }
+
+        val existingOrderData = currentOrderData?.orders?.find { it.id == item.id }
+        if (existingOrderData == null) {
+            currentOrderData?.orders?.add(item.copy(quantity = 0))
         }
 
         val itemVBox = gridPane.children[(row * 4) + col] as VBox
@@ -188,12 +203,28 @@ class WaitersController(private val db: DB, private val orderUtils: OrderUtils):
         when (mode) {
             "increment" -> {
                 quantityLabel.text = (currentCount + 1).toString()
-                currentOrderData?.orders = currentOrderData!!.orders.plus(item) as ArrayList<MenuItem>
+                currentOrderData?.orders = currentOrderData!!.orders.map { orderItem ->
+                    if (orderItem.id == item.id) {
+                        orderItem.copy(quantity = orderItem.quantity + 1)
+                    } else {
+                        orderItem
+                    }
+                } as ArrayList<MenuItem>
             }
             "decrement" -> {
                 if (currentCount > 0) {
-                    currentOrderData?.orders = currentOrderData!!.orders.minus(item) as ArrayList<MenuItem>
+                    currentOrderData?.orders = currentOrderData!!.orders.map { orderItem ->
+                        if (orderItem.id == item.id) {
+                            orderItem.copy(quantity = orderItem.quantity - 1)
+                        } else {
+                            orderItem
+                        }
+                    } as ArrayList<MenuItem>
                     quantityLabel.text = (currentCount - 1).toString()
+                }
+
+                currentOrderData?.orders?.filter{ it.quantity == 0 }?.forEach {
+                    currentOrderData?.orders?.remove(it)
                 }
             }
         }
@@ -201,7 +232,7 @@ class WaitersController(private val db: DB, private val orderUtils: OrderUtils):
         orderUtils.renderOrderList(currentOrderData!!.orders, orderListGridPane, orderListScrollPane, totalLabel)
     }
 
-    fun handleOrderComboBox() {
+    private fun handleOrderComboBox() {
         val selectedTable = orderComboBox.selectionModel.selectedItem
         if (selectedTable != null) {
             currentOrderId = selectedTable.split(" ")[1].toInt()
@@ -225,5 +256,37 @@ class WaitersController(private val db: DB, private val orderUtils: OrderUtils):
 
             renderMenu()
         }
+    }
+
+    private fun processOrderItem(orderId: Int, menuItem: MenuItem) {
+        val existingOrder = OrderItem.selectAll().where {
+            (OrderItem.orderId eq orderId) and (OrderItem.menuId eq menuItem.id)
+        }.firstOrNull()
+
+        if (existingOrder !== null) {
+            OrderItem.update({ OrderItem.id eq existingOrder[OrderItem.id] }) {
+                it[quantity] = menuItem.quantity
+            }
+        } else {
+            OrderItem.insert {
+                it[OrderItem.orderId] = orderId
+                it[menuId] = menuItem.id
+                it[quantity] = 1
+            }
+        }
+    }
+
+    fun handleAddOrderButton() {
+        if (currentOrderId === null) return
+
+        transaction(db.conn) {
+            currentOrderData?.orders?.forEach { menuItem ->
+                processOrderItem(currentOrderId!!, menuItem)
+            }
+        }
+
+        alertProvider.success("Order added successfully")
+        orderUtils.renderOrderList(currentOrderData!!.orders, orderListGridPane, orderListScrollPane, totalLabel)
+
     }
 }

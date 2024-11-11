@@ -14,6 +14,7 @@ import javafx.scene.control.Label
 import javafx.scene.control.ScrollPane
 import javafx.scene.control.TextInputDialog
 import javafx.scene.layout.GridPane
+import javafx.scene.text.Font
 import org.jetbrains.exposed.sql.Join
 import org.jetbrains.exposed.sql.JoinType
 import org.jetbrains.exposed.sql.ResultRow
@@ -22,18 +23,19 @@ import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.text.NumberFormat
+import java.util.*
+import kotlin.collections.ArrayList
 import kotlin.collections.forEach
 
 class OrderUtils(private val db: DB, private val alertProvider: AlertProvider) {
     fun formatItemList(orderList: ArrayList<MenuItem>): List<Map<String, Any>> {
-        val itemCountMap = orderList.groupingBy { it.id }.eachCount()
         val itemMap = orderList.associateBy { it.id }
 
-        return itemCountMap.entries.map { (id, count) ->
+        return itemMap.entries.map { (id, data) ->
             val itemName = itemMap[id]?.name ?: "Unknown Item"
             return@map mapOf(
-                "title" to "${count}x $itemName",
-                "price" to "Rp${NumberFormat.getNumberInstance(java.util.Locale.GERMANY).format(itemMap[id]?.price?.toInt())}"
+                "title" to "${data.quantity}x $itemName",
+                "price" to formatRupiah(data.price.toInt() * data.quantity)
             )
         }
     }
@@ -43,12 +45,12 @@ class OrderUtils(private val db: DB, private val alertProvider: AlertProvider) {
         val formattedOrderList = formatItemList(orderList)
         formattedOrderList.forEachIndexed { index, item ->
             val itemLabel = Label(item["title"].toString())
-            itemLabel.font = javafx.scene.text.Font("Poppins Medium", 20.0)
+            itemLabel.font = Font("Poppins Medium", 20.0)
             itemLabel.prefWidth = 240.0
             orderListGridPane.add(itemLabel, 0, index)
 
-            val priceLabel = Label(item["price"].toString())
-            priceLabel.font = javafx.scene.text.Font("Poppins Medium", 20.0)
+            val priceLabel = Label(item["price"].toString() )
+            priceLabel.font = Font("Poppins Medium", 20.0)
             priceLabel.prefWidth = 220.0
             priceLabel.opacity = 0.6
             priceLabel.alignment = Pos.CENTER_RIGHT
@@ -56,7 +58,7 @@ class OrderUtils(private val db: DB, private val alertProvider: AlertProvider) {
         }
 
         orderListScrollPane.content = orderListGridPane
-        totalLabel.text = this.formatRupiah(orderList.sumOf { it.price.toInt() })
+        totalLabel.text = this.formatRupiah(orderList.sumOf { it.price.toInt() * it.quantity })
     }
 
     fun fetchOrders(status: OrderStatus?): Map<Int, OrderWithItems> {
@@ -87,7 +89,8 @@ class OrderUtils(private val db: DB, private val alertProvider: AlertProvider) {
                     price = it[Menu.price],
                     category = it[Menu.category],
                     image = it[Menu.image],
-                    createdAt = it[Menu.createdAt]
+                    createdAt = it[Menu.createdAt],
+                    quantity = it[OrderItem.quantity]
                 )
 
                 if (ordersMap.containsKey(orderId)) {
@@ -135,7 +138,8 @@ class OrderUtils(private val db: DB, private val alertProvider: AlertProvider) {
                         price = it[Menu.price],
                         category = it[Menu.category],
                         image = it[Menu.image],
-                        createdAt = it[Menu.createdAt]
+                        createdAt = it[Menu.createdAt],
+                        quantity = it[OrderItem.quantity]
                     )
                 } else {
                     null
@@ -151,7 +155,7 @@ class OrderUtils(private val db: DB, private val alertProvider: AlertProvider) {
                         orders = if (menuItem != null) arrayListOf(menuItem) else arrayListOf()
                     )
                 } else {
-                    menuItem?.let { orderData.orders.add(it) }
+                    menuItem?.let { orderData!!.orders.add(it) }
                 }
             }
 
@@ -160,7 +164,7 @@ class OrderUtils(private val db: DB, private val alertProvider: AlertProvider) {
     }
 
     fun formatRupiah(amount: Int): String {
-        return "Rp${NumberFormat.getNumberInstance(java.util.Locale.GERMANY).format(amount)}"
+        return "Rp${NumberFormat.getNumberInstance(Locale.GERMANY).format(amount)}"
     }
 
     fun newOrderDialog() {

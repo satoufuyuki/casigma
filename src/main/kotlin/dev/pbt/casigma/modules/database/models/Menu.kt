@@ -18,6 +18,7 @@ data class MenuItem(
     val id: Int,
     val name: String,
     val price: Float,
+    val quantity: Int,
     val category: MenuCategory,
     val image: String,
     val createdAt: LocalDateTime
